@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  iperf-server:
+    container_name: <containername>
+    hostname: <containername>
+    image: networkstatic/iperf3
+    networks:
+      - ovs
+    entrypoint: [ "/usr/bin/iperf3", "-s" ]
+
+networks:
+  ovs:
+    external: true

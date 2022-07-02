@@ -1,0 +1,138 @@
+# in ./ovs/ dir, probably as root
+mkdir -p /etc/openvswitch
+ovsdb-tool create /etc/openvswitch/conf.db vswitchd/vswitch.ovsschema
+
+mkdir -p /var/run/openvswitch
+mkdir -p /var/log/openvswitch
+ovsdb-server --remote=punix:/var/run/openvswitch/db.sock --remote=db:Open_vSwitch,Open_vSwitch,manager_options --pidfile --detach --log-file
+
+
+ovs-vsctl --no-wait init
+ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-init=true
+
+ovs-ctl status
+ovs-vsctl get Open_vSwitch . dpdk_initialized
+ovs-vswitchd --version
+
+ovs-ctl --no-ovsdb-server --db-sock="$DB_SOCK" start
+
+## Now add docker & couple with ovs-dpdk
+
+apt install docker.io
+
+# nano /lib/systemd/system/docker.service add to ExecStart
+	--cluster-store=consul://192.168.1.1:8500 --cluster-advertise=192.168.1.1:0
+ 
+systemctl daemon-reload
+service docker restart
+
+
+# bitmask: 000000000000000000000000010101010 => 0xAA
+ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-lcore-mask=0xaa
+ovs-vsctl --no-wait set Open_vSwitch . other_config:dpdk-socket-mem=2048 # dpdk-socket-mem=<mem allocation from numa node 0>,<mem allocation from numa node 1> (only 1 numa node)
+# bitmask: 000000000000000000000000000000100 => 0x4
+ovs-vsctl --no-wait set Open_vSwitch . other_config:pmd-cpu-mask=0x4
+
+modprobe vfio-pci
+dpdk-devbind.py --bind=vfio-pci ens1f0
+dpdk-devbind.py --bind=vfio-pci ens1f1
+dpdk-devbind.py --status
+
+apt install -y ovn-common ovn-central ovn-host ovn-docker python3-openvswitch
+
+wget https://releases.hashicorp.com/consul/1.0.6/consul_1.0.6_linux_amd64.zip
+unzip consul_1.0.6_linux_amd64.zip
+sudo mv consul /usr/bin
+
+consul agent -ui -server -data-dir /tmp -advertise 192.168.1.1 -bootstrap-expect 1
+mkdir /etc/consul.d
+# Consul config: /etc/systemd/system/consul.service     - Note: adding nonlocal bind option may come in handy in the case the IP doesn't exist yet
+	[Unit]
+	Description=Consul
+	Documentation=https://www.consul.io/
+
+	[Service]
+	ExecStart=/usr/bin/consul agent -server -ui -data-dir=/tmp -bootstrap-expect=1 -node=vault -bind=192.168.1.1 -config-dir=/etc/consul.d/
+	ExecReload=/bin/kill -HUP $MAINPID
+	LimitNOFILE=65536
+
+	[Install]
+	WantedBy=multi-user.target
+
+nano /etc/consul.d/ui.json 
+#add: (nonlocal bind may be needed)
+	{
+	  "addresses": {
+		"http": "0.0.0.0"
+	  }
+	}
+	
+systemctl daemon-reload
+systemctl start consul
+systemctl enable consul
+
+# diagnostic:
+consul members
+
+# set OVN in overlay mode
+ovn-nbctl set-connection ptcp:6641
+ovn-sbctl set-connection ptcp:6642
+
+modprobe geneve
+export CENTRAL_IP=10.10.10.1        # never changes, master ip
+export LOCAL_IP=10.10.10.1
+export ENCAP_TYPE=geneve
+
+ovs-vsctl set Open_vSwitch . \
+    external_ids:ovn-remote="tcp:$CENTRAL_IP:6642" \
+    external_ids:ovn-nb="tcp:$CENTRAL_IP:6641" \
+    external_ids:ovn-encap-ip=$LOCAL_IP \
+    external_ids:ovn-encap-type="geneve"
+
+######################################################################## << RUN THIS COMMAND ON EVERY BOOT
+/usr/share/openvswitch/scripts/ovn-ctl start_controller
+	
+export id_file=/etc/openvswitch/system-id.conf
+test -e $id_file || uuidgen > $id_file
+ovs-vsctl set Open_vSwitch . external_ids:system-id=$(cat $id_file)
+
+python3 -m pip install Flask
+
+# BUG FOUND: "/usr/bin/ovn-docker-overlay-driver" ln 86-87: add .detach() before .strip('"')
+# BUG FOUND: "/usr/bin/ovn-docker-overlay-driver" ln 271: add .detach() after ret
+
+ovn-docker-overlay-driver --detach
+# If the above works, we can start it as a service instead.
+# needs to run at boot? TODO: add service to start at boot /usr/bin/ovn-docker-overlay-driver --detach
+	[Unit]
+	Description=Overlay Driver for OVN Docker.
+
+	[Service]
+	Type=simple
+	ExecStart=/usr/bin/ovn-docker-overlay-driver
+
+	[Install]
+	WantedBy=multi-user.target
+
+
+docker network create -d openvswitch --subnet=192.168.10.0/24 ovs
+
+# Run after reboot: (/root/setup.sh), maybe use /usr/local/bin/dpdk-devbind.py, /usr/sbin/modprobe, /usr/bin/docker
+	modprobe vfio-pci
+	dpdk-devbind.py --bind=vfio-pci ens1f0
+	dpdk-devbind.py --bind=vfio-pci ens1f1
+
+	docker network create -d openvswitch --subnet=192.168.10.0/24 ovs
+
+
+# Test if everything works:
+docker run  -it --net=ovs --rm --name=iperf3-server -p 5201:5201 networkstatic/iperf3 -s
+docker run --rm -it --net=ovs --name=iperf3-client networkstatic/iperf3 -c iperf3-server
+
+
+# docker compose setup #########################################
+
+sudo curl -L "https://github.com/docker/compose/releases/download/v2.2.3/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+

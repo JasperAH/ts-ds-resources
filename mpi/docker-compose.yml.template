@@ -1,0 +1,19 @@
+version: '3'
+services:
+  openmpi:
+    image: openmpi:latest
+    container_name: <containername>
+    hostname: <containername>
+#    ports:
+#      - "2022:22"
+    volumes:
+      - /root/docker_yml/openmpi/hostfile:/home/mpiuser/hostfile
+      - /root/docker_yml/openmpi/hpcc/:/home/mpiuser/hpcc
+    networks:
+      - ovs
+    privileged: true
+    ipc: "host"
+
+networks:
+  ovs:
+    external: true

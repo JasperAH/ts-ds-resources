@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  mongodb:
+    container_name: <containername>
+    hostname: <containername>
+    image: mongo:4.4.12-rc1-focal
+    volumes:
+      - /root/docker_yml/mongodb/init_replication.sh:/root/init_replication.sh
+    networks:
+      - ovs
+#    ports:
+#      - 27017:27017
+#    restart: always
+    entrypoint: [ "/usr/bin/mongod", "--bind_ip_all", "--replSet", "repset" ]
+
+networks:
+  ovs:
+    external: true

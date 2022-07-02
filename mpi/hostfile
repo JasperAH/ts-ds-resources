@@ -1,0 +1,4 @@
+openmpinode0 slots=8 max-slots=10
+openmpinode1 slots=8 max-slots=10
+openmpinode2 slots=8 max-slots=10
+openmpinode3 slots=8 max-slots=10

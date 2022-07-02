@@ -1,0 +1,9 @@
+[Unit]
+Description=Overlay Driver for OVN Docker.
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ovn-docker-overlay-driver
+
+[Install]
+WantedBy=multi-user.target

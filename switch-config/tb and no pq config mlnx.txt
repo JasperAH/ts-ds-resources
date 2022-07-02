@@ -1,0 +1,60 @@
+
+interface ethernet 1/13
+no qos rewrite dscp
+no qos rewrite map switch-priority 7 dscp 
+no traffic-class 7 dcb ets
+
+exit
+
+interface ethernet 1/14
+no qos rewrite dscp
+no qos rewrite map switch-priority 0 dscp
+no traffic-class 0 dcb ets
+
+exit
+
+interface ethernet 1/15
+no qos rewrite dscp
+no qos rewrite map switch-priority 7 dscp 
+no traffic-class 7 dcb ets
+
+exit
+
+interface ethernet 1/16
+no qos rewrite dscp
+no qos rewrite map switch-priority 0 dscp
+no traffic-class 0 dcb ets
+
+exit
+
+
+interface ethernet 1/17
+no qos rewrite dscp
+no qos rewrite map switch-priority 0 dscp
+no traffic-class 0 dcb ets
+
+exit
+
+
+
+
+ipv4 access-list police 
+policer police bytes rate 1000 m burst 100 k 
+permit ip any any policer police
+exit
+
+interface ethernet 1/13
+ipv4 port access-group police
+exit
+interface ethernet 1/14
+ipv4 port access-group police
+exit
+interface ethernet 1/15
+ipv4 port access-group police
+exit
+interface ethernet 1/16
+ipv4 port access-group police
+exit
+interface ethernet 1/17
+ipv4 port access-group police
+exit

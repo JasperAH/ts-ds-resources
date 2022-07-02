@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  iperf:
+    container_name: <containername>
+    hostname: <containername>
+    image: networkstatic/iperf3
+    volumes:
+      - /root/docker_yml/iperf3/start_iperf.sh:/root/start_iperf.sh
+      - /root/docker_yml/iperf3/iperfnoisepattern.py:/root/iperfnoisepattern.py
+    networks:
+      - ovs
+    #entrypoint: [ "/usr/bin/iperf3", "--pacing-timer 100000", "-t 60000", "-c iperf3-server" ]
+    entrypoint: ["/bin/bash", "/root/start_iperf.sh"]
+
+networks:
+  ovs:
+    external: true

@@ -1,0 +1,16 @@
+version: '3.8'
+
+services:
+  mongodb:
+    container_name: mongodbexperimenter
+    image: openjdk:11
+    volumes:
+      - /local/mpt/latest-version:/local/mpt/latest-version
+      - /local/ycsb/ycsb-0.17.0:/local/ycsb
+    networks:
+      - ovs
+    entrypoint: ["/bin/bash", "/local/mpt/latest-version/start.sh"]
+
+networks:
+  ovs:
+    external: true

@@ -1,0 +1,60 @@
+
+interface ethernet 1/13
+no ipv4 port access-group police
+exit
+interface ethernet 1/14
+no ipv4 port access-group police
+exit
+interface ethernet 1/15
+no ipv4 port access-group police
+exit
+interface ethernet 1/16
+no ipv4 port access-group police
+exit
+interface ethernet 1/17
+no ipv4 port access-group police
+exit
+
+no ipv4 access-list police 
+
+
+
+
+interface ethernet 1/13
+qos rewrite dscp
+qos rewrite map switch-priority 7 dscp 38
+traffic-class 7 dcb ets wrr 30
+
+exit
+
+interface ethernet 1/14
+qos rewrite dscp
+qos rewrite map switch-priority 0 dscp 10
+traffic-class 0 dcb ets wrr 70
+
+exit
+
+interface ethernet 1/15
+qos rewrite dscp
+qos rewrite map switch-priority 7 dscp 38
+traffic-class 7 dcb ets wrr 30
+
+exit
+
+interface ethernet 1/16
+qos rewrite dscp
+qos rewrite map switch-priority 0 dscp 10
+traffic-class 0 dcb ets wrr 70
+
+exit
+
+
+interface ethernet 1/17
+qos rewrite dscp
+qos rewrite map switch-priority 7 dscp 38
+traffic-class 7 dcb ets wrr 30
+
+exit
+
+
+
